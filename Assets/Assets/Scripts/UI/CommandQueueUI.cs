@@ -1,9 +1,10 @@
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 
 /// <summary>
 /// Renders queued commands above the player's head as world-space text rows:
-/// "① ↑ 2.8". ① is always the next command to execute (top of the stack);
+/// "① ↑ 2.83". ① is always the next command to execute (top of the stack);
 /// rows below shift up and renumber as commands fire. Pure observer of the
 /// queue — the game runs fine without it.
 /// </summary>
@@ -52,7 +53,9 @@ public class CommandQueueUI : MonoBehaviour
             if (used)
             {
                 string order = i < OrderGlyphs.Length ? OrderGlyphs[i] : $"{i + 1}.";
-                rows[i].text = $"{order} {entries[i].Command.DisplayLabel} {entries[i].Remaining:0.0}";
+                // InvariantCulture keeps the display "2.83" on comma-decimal locales.
+                string seconds = entries[i].Remaining.ToString("0.00", CultureInfo.InvariantCulture);
+                rows[i].text = $"{order} {entries[i].Command.DisplayLabel} {seconds}";
             }
         }
     }

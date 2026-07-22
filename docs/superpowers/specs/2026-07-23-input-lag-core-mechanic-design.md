@@ -55,7 +55,8 @@ All paths relative to `Assets/Assets/Scripts/`.
 | `Commands/JumpCommand.cs` | Type `Jump`, label `↑`. `Execute` → `motor.Jump()` if grounded, otherwise does nothing (validity is internal to the command). |
 | `Commands/DashCommand.cs` | Type `Dash`, label `→`. `Execute` → `motor.Dash(motor.FacingDirection)`. |
 | `Commands/CommandQueue.cs` | Owns the countdown. `QueuedCommand` struct (command + `ExecuteAt`, `Remaining => ExecuteAt - Time.time`). Serialized `delaySeconds` (per-level knob, 1–5) and `maxQueueSize = 3`. |
-| `UI/CommandQueueUI.cs` | World-space canvas above player's head; one TMP text row per queued entry (`↑ 2.8`). |
+| `UI/CommandQueueUI.cs` | World-space canvas above player's head; one TMP text row per queued entry (`↑ 2.83`). |
+| `Camera/CameraFollow.cs` | Smooth-damp camera follow of the player (added by request 2026-07-23; purely visual). |
 
 ### CommandQueue contract
 
@@ -98,7 +99,8 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 
 - World-space Canvas parented to the Player, positioned above the head.
 - Vertical stack of up to 3 rows; each row is a TMP text: execution-order number +
-  label + remaining seconds to one decimal (`① ↑ 2.8`). Timers update every frame.
+  label + remaining seconds to two decimals (`① ↑ 2.83`), InvariantCulture so the
+  separator is always a dot. Timers update every frame.
 - Numbers reflect queue position (① = next to execute), so execution order is
   immediately obvious. When a command executes, remaining rows shift upward and
   renumber (② becomes ①).
@@ -120,7 +122,8 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 - One gap sized so plain jump fails but **Jump→Dash clears it** — proves the combo
   and the planning loop.
 - Player: white square, Rigidbody2D + BoxCollider2D, all scripts + queue UI attached.
-- Static camera framing the whole play space (no follow script today).
+- Camera smooth-follows the player (`CameraFollow`, offset (0, 2, -10), ~0.15 s
+  smooth time), wired by the scene builder.
 - `delaySeconds = 2` as the testing default.
 
 ## Error handling / edge cases
@@ -148,8 +151,8 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 
 ## Out of scope today
 
-Levels, level-select/delay progression, art, sound, additional abilities, camera
-follow, queue-full/discard feedback polish, menus.
+Levels, level-select/delay progression, art, sound, additional abilities,
+queue-full/discard feedback polish, menus.
 
 ## Future expansion notes
 

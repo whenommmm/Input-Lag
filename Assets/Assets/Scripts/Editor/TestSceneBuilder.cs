@@ -44,10 +44,22 @@ public static class TestSceneBuilder
         BuildBox("Platform 2", square, new Vector2(-5.5f, 3f), new Vector2(3f, 0.5f), groundLayer, PlatformColor);
         BuildBox("Platform 3", square, new Vector2(-2f, 4.5f), new Vector2(3f, 0.5f), groundLayer, PlatformColor);
 
-        BuildPlayer(square, new Vector2(-11f, 1f), groundLayer);
+        GameObject player = BuildPlayer(square, new Vector2(-11f, 1f), groundLayer);
+        WireCameraFollow(player);
 
         EditorSceneManager.SaveScene(scene, ScenePath);
         Debug.Log($"Test scene built and saved to {ScenePath}");
+    }
+
+    private static void WireCameraFollow(GameObject player)
+    {
+        var camera = GameObject.FindWithTag("MainCamera");
+        var follow = camera.AddComponent<CameraFollow>();
+        var followSo = new SerializedObject(follow);
+        followSo.FindProperty("target").objectReferenceValue = player.transform;
+        followSo.ApplyModifiedPropertiesWithoutUndo();
+        // Start the camera at its follow position so play mode doesn't open with a swoop.
+        camera.transform.position = player.transform.position + new Vector3(0f, 2f, -10f);
     }
 
     private static void EnsureGroundLayer()
@@ -116,7 +128,7 @@ public static class TestSceneBuilder
         go.AddComponent<BoxCollider2D>(); // auto-sizes to the 1x1 sprite, scaled by transform
     }
 
-    private static void BuildPlayer(Sprite sprite, Vector2 position, int groundLayer)
+    private static GameObject BuildPlayer(Sprite sprite, Vector2 position, int groundLayer)
     {
         var go = new GameObject("Player");
         go.transform.position = position;
@@ -153,5 +165,7 @@ public static class TestSceneBuilder
         var uiSo = new SerializedObject(ui);
         uiSo.FindProperty("queue").objectReferenceValue = queue;
         uiSo.ApplyModifiedPropertiesWithoutUndo();
+
+        return go;
     }
 }
