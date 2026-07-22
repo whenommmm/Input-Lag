@@ -17,6 +17,11 @@ public static class TestSceneBuilder
         "Packages/com.unity.2d.sprite/Editor/ObjectMenuCreation/DefaultAssets/Textures/v2/Square.png";
     private const string ActionsPath = "Assets/InputSystem_Actions.inputactions";
     private const string GroundLayerName = "Ground";
+    // TMP's default font resources ship inside the uGUI package but must be
+    // imported into Assets once per project.
+    private const string TmpEssentialsPackagePath =
+        "Packages/com.unity.ugui/Package Resources/TMP Essential Resources.unitypackage";
+    private const string TmpSettingsAssetPath = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
 
     private static readonly Color GroundColor = new Color(0.35f, 0.35f, 0.35f);
     private static readonly Color PlatformColor = new Color(0.55f, 0.55f, 0.55f);
@@ -24,6 +29,7 @@ public static class TestSceneBuilder
     [MenuItem("Tools/Input Lag/Build Test Scene")]
     public static void Build()
     {
+        EnsureTmpEssentials();
         EnsureGroundLayer();
         Sprite square = LoadSquareSprite();
         int groundLayer = LayerMask.NameToLayer(GroundLayerName);
@@ -60,6 +66,18 @@ public static class TestSceneBuilder
         followSo.ApplyModifiedPropertiesWithoutUndo();
         // Start the camera at its follow position so play mode doesn't open with a swoop.
         camera.transform.position = player.transform.position + new Vector3(0f, 2f, -10f);
+    }
+
+    private static void EnsureTmpEssentials()
+    {
+        // Runtime-created TextMeshPro components read the default font from TMP
+        // Settings; without the import TMP logs "Can't Generate Mesh, No Font
+        // Asset has been assigned" and the queue UI renders nothing.
+        if (AssetDatabase.LoadMainAssetAtPath(TmpSettingsAssetPath) != null)
+            return;
+        AssetDatabase.ImportPackage(
+            System.IO.Path.GetFullPath(TmpEssentialsPackagePath), false);
+        Debug.Log("Imported TMP Essential Resources (required for the queue UI text).");
     }
 
     private static void EnsureGroundLayer()
