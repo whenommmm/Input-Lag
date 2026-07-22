@@ -26,7 +26,7 @@ This is an **execution delay system**, not a cooldown system.
 | Airborne Jump at fire-time | **Discarded** (wasted) | Mis-planning has real consequences — the prediction challenge the theme demands. |
 | Dash direction | **Facing at execution** | Walking is immediate, so the player queues the *when* and steers the *where* up to the last moment. |
 | Air dash | **Allowed** (gravity suspended during dash) | Unlocks the marquee Jump→Dash gap-crossing combo. |
-| Command validity | **Checked at execution, never at enqueue** | One consistent rule; inputs are always accepted if the queue has room. |
+| Command validity | **Checked at execution, inside the command itself** | One consistent rule; inputs are always accepted if the queue has room. The queue stays fully generic — it never knows why a command succeeds or fails. |
 | Queue full (3 entries) | **Reject new input** (event fired, never overwrite) | Per brief. |
 | Architecture | **Plain C# command classes** (no ScriptableObjects) | Right weight for a jam; a new ability = one class + one input binding. |
 
@@ -50,9 +50,10 @@ All paths relative to `Assets/Assets/Scripts/`.
 |---|---|
 | `Player/PlayerMotor.cs` | All physics: Rigidbody2D velocity movement, grounded check (OverlapBox vs ground layer), `Jump()`, `Dash(int direction)`, `IsGrounded`, `FacingDirection`. Knows nothing about queues or input. |
 | `Player/PlayerInputHandler.cs` | Reads Input System actions. Move → motor every frame; Jump/Dash `performed` → `queue.Enqueue(command)`. |
-| `Commands/IPlayerCommand.cs` | `string DisplayLabel { get; }` · `bool CanExecute(PlayerMotor)` · `void Execute(PlayerMotor)` |
-| `Commands/JumpCommand.cs` | Label `↑`. `CanExecute` → `motor.IsGrounded`. `Execute` → `motor.Jump()`. |
-| `Commands/DashCommand.cs` | Label `→`. `CanExecute` → `true`. `Execute` → `motor.Dash(motor.FacingDirection)`. |
+| `Commands/CommandType.cs` | `enum CommandType { Jump, Dash }`. Future systems identify commands by `Type` — never by label strings. |
+| `Commands/IPlayerCommand.cs` | `CommandType Type { get; }` · `string DisplayLabel { get; }` (UI only) · `void Execute(PlayerMotor)` |
+| `Commands/JumpCommand.cs` | Type `Jump`, label `↑`. `Execute` → `motor.Jump()` if grounded, otherwise does nothing (validity is internal to the command). |
+| `Commands/DashCommand.cs` | Type `Dash`, label `→`. `Execute` → `motor.Dash(motor.FacingDirection)`. |
 | `Commands/CommandQueue.cs` | Owns the countdown. `QueuedCommand` struct (command + `ExecuteAt`, `Remaining => ExecuteAt - Time.time`). Serialized `delaySeconds` (per-level knob, 1–5) and `maxQueueSize = 3`. |
 | `UI/CommandQueueUI.cs` | World-space canvas above player's head; one TMP text row per queued entry (`↑ 2.8`). |
 
@@ -60,11 +61,13 @@ All paths relative to `Assets/Assets/Scripts/`.
 
 - `bool Enqueue(IPlayerCommand cmd)` — if `Count >= 3`: fire `CommandRejected`,
   return false. Else store `{cmd, Time.time + delaySeconds}`, fire `CommandQueued`.
-- `Update()` — while the front entry's `ExecuteAt <= Time.time`: remove it;
-  if `CanExecute(motor)` → `Execute(motor)` + `CommandExecuted`, else `CommandDiscarded`.
+- `Update()` — while the front entry's `ExecuteAt <= Time.time`: remove it, call
+  `Execute(motor)`, fire `CommandExecuted`. The queue's only responsibilities are:
+  wait for countdown → execute → remove → fire events. It never knows or cares
+  whether a command's internal validity check passed.
 - Exposes `IReadOnlyList<QueuedCommand> Entries` for the UI's per-frame countdown polling.
-- Events (`CommandQueued`, `CommandExecuted`, `CommandDiscarded`, `CommandRejected`)
-  carry the entry; UI uses them for structural changes only.
+- Events (`CommandQueued`, `CommandExecuted`, `CommandRejected`) carry the entry;
+  UI uses them for structural changes only.
 - Uses `Time.time` (scaled) so pausing pauses countdowns. Frame-granularity firing
   (~16 ms late worst case) is acceptable.
 - Because the delay is constant per level, execution spacing always mirrors input
@@ -94,14 +97,19 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 ## UI
 
 - World-space Canvas parented to the Player, positioned above the head.
-- Vertical stack of up to 3 rows; each row is a TMP text: label + remaining seconds
-  to one decimal (`↑ 2.8`). Timers update every frame.
+- Vertical stack of up to 3 rows; each row is a TMP text: execution-order number +
+  label + remaining seconds to one decimal (`① ↑ 2.8`). Timers update every frame.
+- Numbers reflect queue position (① = next to execute), so execution order is
+  immediately obvious. When a command executes, remaining rows shift upward and
+  renumber (② becomes ①).
 - **Next-to-execute at the top**; on execution the remaining rows shift upward.
-- No art: text glyphs `↑` / `→` stand in for icons. If the default TMP font atlas
-  lacks those arrow glyphs, fall back to `JMP` / `DSH` — labels are data on the
-  command, so this is a two-string change.
-- Optional (only if trivial during implementation): brief red flash on
-  discard/reject for readability. Not required today.
+- No art: text glyphs `①②③` / `↑` / `→` stand in for icons. If the default TMP
+  font atlas lacks any of these glyphs, fall back to plain text (`1.` / `JMP` /
+  `DSH`) — labels are data on the command and numbering lives in the UI, so this
+  is a strings-only change.
+- Optional (only if trivial during implementation): brief red flash on reject for
+  readability. Not required today. (The queue no longer surfaces discards — if
+  discard feedback is ever wanted, it comes from the motor/command layer.)
 
 ## Test scene
 
@@ -120,7 +128,7 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 | Case | Behavior |
 |---|---|
 | Queue full | Input ignored, `CommandRejected` fired. |
-| Jump fires while airborne | Discarded, `CommandDiscarded` fired. |
+| Jump fires while airborne | `JumpCommand.Execute` does nothing — the action is wasted. The queue treats it like any other execution (`CommandExecuted` fires). |
 | Dash fires during active dash | Dash restarts (timer resets). |
 | Jump fires during active dash | Dash cancels, jump executes. |
 | Move input during dash | Ignored until dash ends. |
@@ -134,7 +142,8 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 4. Airborne jump at fire-time is discarded silently (no impulse).
 5. Jump→Dash queued together clears the test gap.
 6. Dash direction follows facing at the moment of execution (turn after pressing).
-7. UI countdowns tick in real time, rows shift up on execution, empty when idle.
+7. UI countdowns tick in real time; rows are numbered by execution order (① next),
+   shift up and renumber on execution, empty when idle.
 8. Changing `delaySeconds` in the inspector changes all subsequent countdowns.
 
 ## Out of scope today
@@ -144,7 +153,8 @@ follow, queue-full/discard feedback polish, menus.
 
 ## Future expansion notes
 
-- New ability = new `IPlayerCommand` class + input binding + enqueue call.
+- New ability = new `CommandType` enum entry + new `IPlayerCommand` class +
+  input binding + enqueue call.
 - Per-level delay is just the `delaySeconds` field set per scene.
 - If abilities grow past ~5 or need designer tuning/icons, graduate commands to
   ScriptableObjects — the interface boundary makes that a mechanical refactor.
