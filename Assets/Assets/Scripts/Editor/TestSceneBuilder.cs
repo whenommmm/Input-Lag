@@ -55,7 +55,8 @@ public static class TestSceneBuilder
         BuildBox("Platform 3", square, new Vector2(-2f, 4.5f), new Vector2(3f, 0.5f), groundLayer, PlatformColor);
 
         GameObject player = BuildPlayer(square, new Vector2(-11f, 1f), groundLayer);
-        WireCameraFollow(player);
+        CameraFollow follow = WireCameraFollow(player);
+        BuildLevelSystems(player, follow, square);
 
         EditorSceneManager.SaveScene(scene, ScenePath);
         EnsureSceneInBuildSettings();
@@ -74,7 +75,7 @@ public static class TestSceneBuilder
         EditorBuildSettings.scenes = scenes.ToArray();
     }
 
-    private static void WireCameraFollow(GameObject player)
+    private static CameraFollow WireCameraFollow(GameObject player)
     {
         var camera = GameObject.FindWithTag("MainCamera");
         var follow = camera.AddComponent<CameraFollow>();
@@ -85,6 +86,69 @@ public static class TestSceneBuilder
         // swoop; read the offset off the component so retuning it can't go stale.
         camera.transform.position =
             player.transform.position + followSo.FindProperty("offset").vector3Value;
+        return follow;
+    }
+
+    private static void BuildLevelSystems(GameObject player, CameraFollow follow, Sprite square)
+    {
+        var managerGo = new GameObject("LevelManager");
+        var banner = managerGo.AddComponent<BannerUI>();
+        var manager = managerGo.AddComponent<LevelManager>();
+
+        Checkpoint checkpointA = BuildCheckpoint("Checkpoint A (spawn)",
+            new Vector2(-11f, 1f), manager);
+        BuildCheckpoint("Checkpoint B (pre-gap)", new Vector2(0.5f, 1.5f), manager);
+
+        var killGo = BuildTrigger("Kill Zone", new Vector2(0f, -7f), new Vector2(60f, 2f));
+        Wire(killGo.AddComponent<KillZone>(), "levelManager", manager);
+
+        // Goal: visible green block past the jump->dash gap. Collider auto-sizes
+        // to the 1x1 sprite, scaled by the transform.
+        var goalGo = new GameObject("Goal");
+        goalGo.transform.position = new Vector2(13f, 0.75f);
+        goalGo.transform.localScale = new Vector3(1f, 1.5f, 1f);
+        var goalRenderer = goalGo.AddComponent<SpriteRenderer>();
+        goalRenderer.sprite = square;
+        goalRenderer.color = new Color(0.25f, 0.85f, 0.35f);
+        goalGo.AddComponent<BoxCollider2D>().isTrigger = true;
+        Wire(goalGo.AddComponent<LevelGoal>(), "levelManager", manager);
+
+        var managerSo = new SerializedObject(manager);
+        managerSo.FindProperty("motor").objectReferenceValue =
+            player.GetComponent<PlayerMotor>();
+        managerSo.FindProperty("queue").objectReferenceValue =
+            player.GetComponent<CommandQueue>();
+        managerSo.FindProperty("inputHandler").objectReferenceValue =
+            player.GetComponent<PlayerInputHandler>();
+        managerSo.FindProperty("cameraFollow").objectReferenceValue = follow;
+        managerSo.FindProperty("banner").objectReferenceValue = banner;
+        managerSo.FindProperty("initialCheckpoint").objectReferenceValue = checkpointA;
+        managerSo.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static Checkpoint BuildCheckpoint(string name, Vector2 position, LevelManager manager)
+    {
+        var go = BuildTrigger(name, position, new Vector2(1f, 3f));
+        var checkpoint = go.AddComponent<Checkpoint>();
+        Wire(checkpoint, "levelManager", manager);
+        return checkpoint;
+    }
+
+    private static GameObject BuildTrigger(string name, Vector2 position, Vector2 size)
+    {
+        var go = new GameObject(name);
+        go.transform.position = position;
+        var box = go.AddComponent<BoxCollider2D>();
+        box.isTrigger = true;
+        box.size = size;
+        return go;
+    }
+
+    private static void Wire(Component component, string field, Object value)
+    {
+        var so = new SerializedObject(component);
+        so.FindProperty(field).objectReferenceValue = value;
+        so.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static void EnsureTmpEssentials()
