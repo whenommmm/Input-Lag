@@ -55,7 +55,7 @@ All paths relative to `Assets/Assets/Scripts/`.
 | `Commands/JumpCommand.cs` | Type `Jump`, label `↑`. `Execute` → `motor.Jump()` if grounded, otherwise does nothing (validity is internal to the command). |
 | `Commands/DashCommand.cs` | Type `Dash`, label `→`. `Execute` → `motor.Dash(motor.FacingDirection)`. |
 | `Commands/CommandQueue.cs` | Owns the countdown. `QueuedCommand` struct (command + `ExecuteAt`, `Remaining => ExecuteAt - Time.time`). Serialized `delaySeconds` (per-level knob, 1–5) and `maxQueueSize = 3`. |
-| `UI/CommandQueueUI.cs` | World-space canvas above player's head; one TMP text row per queued entry (`↑ 2.83`). |
+| `UI/CommandQueueUI.cs` | World-space draining-bar rows above player's head (icon + bar per queued entry; digits on the next-to-execute row only — see UI section). |
 | `Camera/CameraFollow.cs` | Smooth-damp camera follow of the player (added by request 2026-07-23; purely visual). |
 
 ### CommandQueue contract
@@ -113,6 +113,10 @@ digits.
   InvariantCulture so the separator is always a dot); later rows are bar-only
   since with a constant delay their exact timers carry no extra information.
 - The next-to-execute bar flashes toward white during its final 0.5 s.
+- Known fragility (accepted 2026-07-24): the `↑`/`→` icon glyphs are not in the
+  static LiberationSans SDF atlas — they render via the dynamic fallback font
+  asset. Swapping the default font or clearing the fallback would degrade them
+  to `□`. If fonts ever change, bake U+2191/U+2192 into the atlas.
 - Optional (only if trivial during implementation): brief red flash on reject for
   readability. Not required today. (The queue no longer surfaces discards — if
   discard feedback is ever wanted, it comes from the motor/command layer.)

@@ -29,6 +29,10 @@ public static class TestSceneBuilder
     [MenuItem("Tools/Input Lag/Build Test Scene")]
     public static void Build()
     {
+        // Don't silently discard someone's unsaved scene edits.
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            return;
+
         EnsureTmpEssentials();
         EnsureGroundLayer();
         Sprite square = LoadSquareSprite();
@@ -54,7 +58,20 @@ public static class TestSceneBuilder
         WireCameraFollow(player);
 
         EditorSceneManager.SaveScene(scene, ScenePath);
+        EnsureSceneInBuildSettings();
         Debug.Log($"Test scene built and saved to {ScenePath}");
+    }
+
+    private static void EnsureSceneInBuildSettings()
+    {
+        // A player build only contains scenes listed here — without this a
+        // WebGL/jam build would ship the empty template scene.
+        var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(
+            EditorBuildSettings.scenes);
+        if (scenes.Exists(s => s.path == ScenePath))
+            return;
+        scenes.Add(new EditorBuildSettingsScene(ScenePath, true));
+        EditorBuildSettings.scenes = scenes.ToArray();
     }
 
     private static void WireCameraFollow(GameObject player)
@@ -64,8 +81,10 @@ public static class TestSceneBuilder
         var followSo = new SerializedObject(follow);
         followSo.FindProperty("target").objectReferenceValue = player.transform;
         followSo.ApplyModifiedPropertiesWithoutUndo();
-        // Start the camera at its follow position so play mode doesn't open with a swoop.
-        camera.transform.position = player.transform.position + new Vector3(0f, 2f, -10f);
+        // Start the camera at its follow position so play mode doesn't open with a
+        // swoop; read the offset off the component so retuning it can't go stale.
+        camera.transform.position =
+            player.transform.position + followSo.FindProperty("offset").vector3Value;
     }
 
     private static void EnsureTmpEssentials()
@@ -75,6 +94,9 @@ public static class TestSceneBuilder
         // Asset has been assigned" and the queue UI renders nothing.
         if (AssetDatabase.LoadMainAssetAtPath(TmpSettingsAssetPath) != null)
             return;
+        // Note: ImportPackage is asynchronous — fine today because the scene
+        // contains no baked TMP objects (the queue UI builds itself at runtime),
+        // but a future scene-baked label would need to wait for the import.
         AssetDatabase.ImportPackage(
             System.IO.Path.GetFullPath(TmpEssentialsPackagePath), false);
         Debug.Log("Imported TMP Essential Resources (required for the queue UI text).");

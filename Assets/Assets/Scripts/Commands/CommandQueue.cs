@@ -5,12 +5,14 @@ using UnityEngine;
 /// <summary>
 /// The countdown heart of the game. Accepts commands instantly, waits
 /// delaySeconds, then executes them FIFO. Fully generic: its only job is
-/// wait -> execute -> remove -> fire events. It never knows whether a
-/// command's internal validity check passed.
+/// wait -> remove -> execute -> fire events (removal first keeps the loop
+/// safe if a handler re-enqueues). It never knows whether a command's
+/// internal validity check passed.
 /// </summary>
 public class CommandQueue : MonoBehaviour
 {
     [Tooltip("Level-wide execution delay in seconds. This is the per-level difficulty knob.")]
+    [Range(1f, 5f)]
     [SerializeField] private float delaySeconds = 2f;
     [SerializeField] private int maxQueueSize = 3;
     [SerializeField] private PlayerMotor motor;
