@@ -81,6 +81,10 @@ public static class TestSceneBuilder
         var follow = camera.AddComponent<CameraFollow>();
         var followSo = new SerializedObject(follow);
         followSo.FindProperty("target").objectReferenceValue = player.transform;
+        // View bounds = the level's extent (x[-12..14]), a little margin below the
+        // ground (-2), open sky above. The camera view never leaves this rect.
+        followSo.FindProperty("boundsMin").vector2Value = new Vector2(-12f, -2f);
+        followSo.FindProperty("boundsMax").vector2Value = new Vector2(14f, 40f);
         followSo.ApplyModifiedPropertiesWithoutUndo();
         // Start the camera at its follow position so play mode doesn't open with a
         // swoop; read the offset off the component so retuning it can't go stale.
@@ -203,7 +207,9 @@ public static class TestSceneBuilder
         var go = new GameObject("Main Camera") { tag = "MainCamera" };
         var cam = go.AddComponent<Camera>();
         cam.orthographic = true;
-        cam.orthographicSize = 7f;
+        // 5.5 leaves the clamped camera room to pan inside this level's bounds;
+        // bigger values show more lookahead but make the follow nearly static here.
+        cam.orthographicSize = 5.5f;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.12f, 0.12f, 0.15f);
         go.transform.position = new Vector3(1f, 4.5f, -10f);

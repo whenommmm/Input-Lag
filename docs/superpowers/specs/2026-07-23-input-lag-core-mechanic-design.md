@@ -131,7 +131,11 @@ digits.
   and the planning loop.
 - Player: white square, Rigidbody2D + BoxCollider2D, all scripts + queue UI attached.
 - Camera smooth-follows the player (`CameraFollow`, offset (0, 2, -10), ~0.15 s
-  smooth time), wired by the scene builder.
+  smooth time), wired by the scene builder. The camera VIEW is clamped inside
+  serialized level bounds (test scene: x −12..14, y −2..40) so the void beyond
+  the level never shows; if the bounds are smaller than the view on an axis,
+  the camera centers on them. Ortho size 5.5 (added 2026-07-24 — leaves the
+  clamped camera room to pan; raise it for more planning lookahead).
 - `delaySeconds = 2` as the testing default.
 
 ## Error handling / edge cases
