@@ -20,6 +20,9 @@ public class CommandQueue : MonoBehaviour
     public IReadOnlyList<QueuedCommand> Entries => entries;
     public int MaxQueueSize => maxQueueSize;
 
+    /// <summary>The level-wide delay — lets the UI turn Remaining into a 0..1 bar fraction.</summary>
+    public float DelaySeconds => delaySeconds;
+
     public event Action<QueuedCommand> CommandQueued;
     public event Action<QueuedCommand> CommandExecuted;
     public event Action<IPlayerCommand> CommandRejected;

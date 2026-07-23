@@ -97,18 +97,22 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 
 ## UI
 
-- World-space Canvas parented to the Player, positioned above the head.
-- Vertical stack of up to 3 rows; each row is a TMP text: execution-order number +
-  label + remaining seconds to two decimals (`① ↑ 2.83`), InvariantCulture so the
-  separator is always a dot. Timers update every frame.
-- Numbers reflect queue position (① = next to execute), so execution order is
-  immediately obvious. When a command executes, remaining rows shift upward and
-  renumber (② becomes ①).
+Redesigned 2026-07-24 after playtest feedback ("three ticking timers are hard to
+read"): countdowns are now **draining bars**, read preattentively instead of as
+digits.
+
+- World-space rows parented to the Player above the head (runtime-built TMP text
+  + SpriteRenderer bars; no Canvas, no prefabs).
+- Each queued action = its icon glyph (`↑`/`→`) + a horizontal bar that empties
+  as the countdown runs; the action fires when the bar is empty. Bar color runs
+  green → yellow → red with time remaining.
 - **Next-to-execute at the top**; on execution the remaining rows shift upward.
-- No art: text glyphs `①②③` / `↑` / `→` stand in for icons. If the default TMP
-  font atlas lacks any of these glyphs, fall back to plain text (`1.` / `JMP` /
-  `DSH`) — labels are data on the command and numbering lives in the UI, so this
-  is a strings-only change.
+  Order is conveyed purely by position — no numbering glyphs (the circled digits
+  weren't in the default font atlas anyway).
+- Only the next-to-execute row shows a digit readout (`2.83`, two decimals,
+  InvariantCulture so the separator is always a dot); later rows are bar-only
+  since with a constant delay their exact timers carry no extra information.
+- The next-to-execute bar flashes toward white during its final 0.5 s.
 - Optional (only if trivial during implementation): brief red flash on reject for
   readability. Not required today. (The queue no longer surfaces discards — if
   discard feedback is ever wanted, it comes from the motor/command layer.)
@@ -145,8 +149,9 @@ Extend the existing `InputSystem_Actions` asset (Player map):
 4. Airborne jump at fire-time is discarded silently (no impulse).
 5. Jump→Dash queued together clears the test gap.
 6. Dash direction follows facing at the moment of execution (turn after pressing).
-7. UI countdowns tick in real time; rows are numbered by execution order (① next),
-   shift up and renumber on execution, empty when idle.
+7. UI bars drain in real time (green → yellow → red, white flash in the last
+   0.5 s on the top row); top row shows digits; rows shift up on execution and
+   the display empties when idle.
 8. Changing `delaySeconds` in the inspector changes all subsequent countdowns.
 
 ## Out of scope today
