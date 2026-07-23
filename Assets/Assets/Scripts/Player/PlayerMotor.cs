@@ -61,6 +61,19 @@ public class PlayerMotor : MonoBehaviour
         body.gravityScale = 0f;
     }
 
+    /// <summary>
+    /// Respawn-style reset: cancels any dash (restoring gravity), zeroes
+    /// velocity, and moves the body. Sets transform.position too so
+    /// rigidbody interpolation can't smear the jump across frames.
+    /// </summary>
+    public void Teleport(Vector2 position)
+    {
+        CancelDash();
+        body.linearVelocity = Vector2.zero;
+        body.position = position;
+        transform.position = position;
+    }
+
     private void CancelDash()
     {
         if (!IsDashing) return;

@@ -47,6 +47,15 @@ public class CommandQueue : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Empties the queue (e.g. on death — a death wipes your plan). Fires no
+    /// events; the polling UI empties on the next frame automatically.
+    /// </summary>
+    public void Clear()
+    {
+        entries.Clear();
+    }
+
     private void Update()
     {
         // The delay is constant per level, so entries are always in ExecuteAt

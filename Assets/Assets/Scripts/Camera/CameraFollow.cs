@@ -18,4 +18,12 @@ public class CameraFollow : MonoBehaviour
         Vector3 desired = target.position + offset;
         transform.position = Vector3.SmoothDamp(transform.position, desired, ref velocity, smoothTime);
     }
+
+    /// <summary>Jump straight to the follow position (e.g. after a respawn teleport).</summary>
+    public void SnapToTarget()
+    {
+        if (target == null) return;
+        velocity = Vector3.zero;
+        transform.position = target.position + offset;
+    }
 }
